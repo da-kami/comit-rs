@@ -1,13 +1,16 @@
-// These are stateless tests -- they don't require any state of the cnd and they don't change it
-// They are mostly about checking invalid request responses
-import "chai/register-should";
-import "../lib/setup_chai";
-import { oneActorTest } from "../lib/actor_test";
-import { expect } from "chai";
+/**
+ * @logDir lightning_routes
+ */
 
-setTimeout(async function() {
-    describe("Lightning routes", () => {
-        oneActorTest(
+import { expect } from "chai";
+import { oneActorTest } from "../../lib/actor_test";
+
+// ******************************************** //
+// Lightning routes                               //
+// ******************************************** //
+describe("Lightning routes tests", () => {
+    it("lightning-routes-post-eth-lnbtc-return-400", async function() {
+        await oneActorTest(
             "lightning-routes-post-eth-lnbtc-return-400",
             async function({ alice }) {
                 const promise = alice.cnd.createHanEthereumEtherHalightLightningBitcoin();
@@ -19,8 +22,10 @@ setTimeout(async function() {
                 });
             }
         );
+    });
 
-        oneActorTest(
+    it("lightning-routes-post-erc20-lnbtc-return-400", async function() {
+        await oneActorTest(
             "lightning-routes-post-erc20-lnbtc-return-400",
             async function({ alice }) {
                 const promise = alice.cnd.createHerc20EthereumErc20HalightLightningBitcoin();
@@ -32,8 +37,10 @@ setTimeout(async function() {
                 });
             }
         );
+    });
 
-        oneActorTest(
+    it("lightning-routes-post-lnbtc-eth-return-400", async function() {
+        await oneActorTest(
             "lightning-routes-post-lnbtc-eth-return-400",
             async function({ alice }) {
                 const promise = alice.cnd.createHalightLightningBitcoinHanEthereumEther();
@@ -45,8 +52,10 @@ setTimeout(async function() {
                 });
             }
         );
+    });
 
-        oneActorTest(
+    it("lightning-routes-post-lnbtc-erc20-return-400", async function() {
+        await oneActorTest(
             "lightning-routes-post-lnbtc-erc20-return-400",
             async function({ alice }) {
                 const promise = alice.cnd.createHalightLightningBitcoinHerc20EthereumErc20();
@@ -59,5 +68,4 @@ setTimeout(async function() {
             }
         );
     });
-    run();
-}, 0);
+});
