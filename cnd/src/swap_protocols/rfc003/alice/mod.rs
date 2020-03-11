@@ -4,7 +4,7 @@ pub use self::actions::*;
 
 use crate::{
     seed::SwapSeed,
-    swap_protocols::rfc003::{ledger_state::LedgerState, messages, ActorState, SwapCommunication},
+    swap_protocols::rfc003::{ledger_state::LedgerState, messages, SwapCommunication},
 };
 use derivative::Derivative;
 
@@ -16,10 +16,23 @@ pub struct State<AL, BL, AA, BA, AH, BH, AI, BI, AT, BT> {
     pub beta_ledger_state: LedgerState<BA, BH, BT>,
     #[derivative(Debug = "ignore", PartialEq = "ignore")]
     pub secret_source: SwapSeed, // Used to derive identities and also to generate the secret.
-    pub failed: bool,
 }
 
 impl<AL, BL, AA, BA, AH, BH, AI, BI, AT, BT> State<AL, BL, AA, BA, AH, BH, AI, BI, AT, BT> {
+    pub fn new(
+        swap_communication: SwapCommunication<AL, BL, AA, BA, AI, BI>,
+        alpha_ledger_state: LedgerState<AA, AH, AT>,
+        beta_ledger_state: LedgerState<BA, BH, BT>,
+        secret_source: SwapSeed,
+    ) -> Self {
+        Self {
+            swap_communication,
+            alpha_ledger_state,
+            beta_ledger_state,
+            secret_source,
+        }
+    }
+
     pub fn proposed(
         request: messages::Request<AL, BL, AA, BA, AI, BI>,
         secret_source: SwapSeed,
@@ -29,7 +42,6 @@ impl<AL, BL, AA, BA, AH, BH, AI, BI, AT, BT> State<AL, BL, AA, BA, AH, BH, AI, B
             alpha_ledger_state: LedgerState::NotDeployed,
             beta_ledger_state: LedgerState::NotDeployed,
             secret_source,
-            failed: false,
         }
     }
 
@@ -43,7 +55,6 @@ impl<AL, BL, AA, BA, AH, BH, AI, BI, AT, BT> State<AL, BL, AA, BA, AH, BH, AI, B
             alpha_ledger_state: LedgerState::NotDeployed,
             beta_ledger_state: LedgerState::NotDeployed,
             secret_source,
-            failed: false,
         }
     }
 
@@ -57,59 +68,10 @@ impl<AL, BL, AA, BA, AH, BH, AI, BI, AT, BT> State<AL, BL, AA, BA, AH, BH, AI, B
             alpha_ledger_state: LedgerState::NotDeployed,
             beta_ledger_state: LedgerState::NotDeployed,
             secret_source,
-            failed: false,
         }
     }
 
     pub fn request(&self) -> &messages::Request<AL, BL, AA, BA, AI, BI> {
         self.swap_communication.request()
-    }
-}
-
-impl<AL, BL, AA, BA, AH, BH, AI, BI, AT, BT> ActorState
-    for State<AL, BL, AA, BA, AH, BH, AI, BI, AT, BT>
-where
-    AL: 'static,
-    BL: 'static,
-    AA: 'static,
-    BA: 'static,
-    AH: 'static,
-    BH: 'static,
-    AI: 'static,
-    BI: 'static,
-    AT: 'static,
-    BT: 'static,
-{
-    type AL = AL;
-    type BL = BL;
-    type AA = AA;
-    type BA = BA;
-    type AH = AH;
-    type BH = BH;
-    type AT = AT;
-    type BT = BT;
-
-    fn expected_alpha_asset(&self) -> &Self::AA {
-        &self.swap_communication.request().alpha_asset
-    }
-
-    fn expected_beta_asset(&self) -> &Self::BA {
-        &self.swap_communication.request().beta_asset
-    }
-
-    fn alpha_ledger_mut(&mut self) -> &mut LedgerState<AA, AH, AT> {
-        &mut self.alpha_ledger_state
-    }
-
-    fn beta_ledger_mut(&mut self) -> &mut LedgerState<BA, BH, BT> {
-        &mut self.beta_ledger_state
-    }
-
-    fn swap_failed(&self) -> bool {
-        self.failed
-    }
-
-    fn set_swap_failed(&mut self) {
-        self.failed = true;
     }
 }

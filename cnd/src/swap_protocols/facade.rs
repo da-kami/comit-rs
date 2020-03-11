@@ -14,17 +14,17 @@ use crate::{
     seed::{DeriveSwapSeed, RootSeed, SwapSeed},
     swap_protocols::{
         ledger::{bitcoin, Ethereum},
+        ledger_states::{AlphaLedgerState, BetaLedgerState},
         rfc003::{
             self,
-            create_swap::{HtlcParams, SwapEvent},
+            create_swap::HtlcParams,
             events::{
                 Deployed, Funded, HtlcDeployed, HtlcFunded, HtlcRedeemed, HtlcRefunded, Redeemed,
                 Refunded,
             },
-            ActorState,
+            SwapCommunication,
         },
-        state_store::{self, Get, InMemoryStateStore, Insert, Update},
-        SwapId,
+        state, InsertSwapError, SwapCommunicationState, SwapErrorState, SwapId,
     },
     transaction,
 };
@@ -51,43 +51,62 @@ use std::{convert::TryInto, fmt::Debug, sync::Arc};
 pub struct Facade {
     pub bitcoin_connector: Arc<btsieve::bitcoin::Cache<BitcoindConnector>>,
     pub ethereum_connector: Arc<ethereum::Cache<Web3Connector>>,
-    pub state_store: Arc<InMemoryStateStore>,
+    pub alpha_ledger_state: Arc<AlphaLedgerState>,
+    pub beta_ledger_state: Arc<BetaLedgerState>,
+    pub swap_communication_state: Arc<SwapCommunicationState>,
+    pub swap_error_state: Arc<SwapErrorState>,
     pub seed: RootSeed,
     pub swarm: Swarm,
     pub db: Sqlite,
 }
 
-impl<S> Insert<S> for Facade
+impl<AL, BL, AA, BA, AI, BI> state::Insert<SwapCommunication<AL, BL, AA, BA, AI, BI>> for Facade
 where
-    S: Send + 'static,
+    AL: Clone + Send + 'static,
+    BL: Clone + Send + 'static,
+    AA: Clone + Send + 'static,
+    BA: Clone + Send + 'static,
+    AI: Clone + Send + 'static,
+    BI: Clone + Send + 'static,
 {
-    fn insert(&self, key: SwapId, value: S) {
-        self.state_store.insert(key, value)
+    fn insert(&self, key: SwapId, value: SwapCommunication<AL, BL, AA, BA, AI, BI>) {
+        self.swap_communication_state.insert(key, value)
     }
 }
 
-impl<S> Get<S> for Facade
+impl<AL, BL, AA, BA, AI, BI> state::Get<SwapCommunication<AL, BL, AA, BA, AI, BI>> for Facade
 where
-    S: Clone + Send + 'static,
-{
-    fn get(&self, key: &SwapId) -> Result<Option<S>, state_store::Error> {
-        self.state_store.get(key)
-    }
-}
-
-impl<S> Update<S, SwapEvent<S::AA, S::BA, S::AH, S::BH, S::AT, S::BT>> for Facade
-where
-    S: ActorState + Send,
-    S::AA: Ord,
-    S::BA: Ord,
+    AL: Clone + Send + 'static,
+    BL: Clone + Send + 'static,
+    AA: Clone + Send + 'static,
+    BA: Clone + Send + 'static,
+    AI: Clone + Send + 'static,
+    BI: Clone + Send + 'static,
 {
     #[allow(clippy::type_complexity)]
-    fn update(&self, key: &SwapId, update: SwapEvent<S::AA, S::BA, S::AH, S::BH, S::AT, S::BT>) {
-        Update::<S, SwapEvent<S::AA, S::BA, S::AH, S::BH, S::AT, S::BT>>::update(
-            self.state_store.as_ref(),
-            key,
-            update,
-        )
+    fn get(
+        &self,
+        key: &SwapId,
+    ) -> anyhow::Result<Option<SwapCommunication<AL, BL, AA, BA, AI, BI>>> {
+        self.swap_communication_state.get(key)
+    }
+}
+
+impl From<Facade> for Arc<AlphaLedgerState> {
+    fn from(facade: Facade) -> Self {
+        facade.alpha_ledger_state
+    }
+}
+
+impl From<Facade> for Arc<BetaLedgerState> {
+    fn from(facade: Facade) -> Self {
+        facade.beta_ledger_state
+    }
+}
+
+impl InsertSwapError for Facade {
+    fn insert_swap_error(&self, id: &SwapId) {
+        self.swap_error_state.insert(&id)
     }
 }
 

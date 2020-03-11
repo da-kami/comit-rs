@@ -25,7 +25,11 @@ use cnd::{
     jsonrpc, load_swaps,
     network::Swarm,
     seed::RootSeed,
-    swap_protocols::{state_store::InMemoryStateStore, Facade},
+    swap_protocols::{
+        ledger_states::{AlphaLedgerState, BetaLedgerState},
+        swap_communication_state::SwapCommunicationState,
+        Facade, SwapErrorState,
+    },
 };
 use rand::rngs::OsRng;
 use std::{process, sync::Arc};
@@ -105,7 +109,12 @@ fn main() -> anyhow::Result<()> {
         ))
     };
 
-    let state_store = Arc::new(InMemoryStateStore::default());
+    let alpha_ledger_state = Arc::new(AlphaLedgerState::default());
+    let beta_ledger_state = Arc::new(BetaLedgerState::default());
+
+    let swap_communication_state = Arc::new(SwapCommunicationState::default());
+
+    let swap_error_state = Arc::new(SwapErrorState::default());
 
     let database = Sqlite::new_in_dir(&settings.data.dir)?;
 
@@ -115,14 +124,19 @@ fn main() -> anyhow::Result<()> {
         &mut runtime,
         Arc::clone(&bitcoin_connector),
         Arc::clone(&ethereum_connector),
-        Arc::clone(&state_store),
+        Arc::clone(&swap_communication_state),
+        Arc::clone(&alpha_ledger_state),
+        Arc::clone(&beta_ledger_state),
         &database,
     )?;
 
     let deps = Facade {
         bitcoin_connector,
         ethereum_connector,
-        state_store,
+        alpha_ledger_state,
+        beta_ledger_state,
+        swap_communication_state,
+        swap_error_state,
         seed,
         swarm,
         db: database,

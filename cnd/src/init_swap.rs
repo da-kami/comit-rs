@@ -1,35 +1,27 @@
 use crate::{
     db::AcceptedSwap,
-    seed::DeriveSwapSeed,
     swap_protocols::{
+        ledger_states::{AlphaLedgerState, BetaLedgerState},
         rfc003::{
-            alice, bob, create_alpha_watcher,
-            create_swap::{create_beta_watcher, SwapEvent},
+            create_swap::{create_watcher, OngoingSwap},
             events::{HtlcDeployed, HtlcFunded, HtlcRedeemed, HtlcRefunded},
-            Accept, Request,
+            Accept, Request, SwapCommunication,
         },
-        state_store::{Insert, Update},
-        Role,
+        state, InsertSwapError,
     },
 };
+use std::sync::Arc;
+use tracing_futures::Instrument;
 
 #[allow(clippy::cognitive_complexity)]
 pub fn init_accepted_swap<D, AL, BL, AA, BA, AH, BH, AI, BI, AT, BT>(
     dependencies: &D,
     accepted: AcceptedSwap<AL, BL, AA, BA, AI, BI>,
-    role: Role,
 ) -> anyhow::Result<()>
 where
-    D: Insert<alice::State<AL, BL, AA, BA, AH, BH, AI, BI, AT, BT>>
-        + Insert<bob::State<AL, BL, AA, BA, AH, BH, AI, BI, AT, BT>>
-        + Update<
-            alice::State<AL, BL, AA, BA, AH, BH, AI, BI, AT, BT>,
-            SwapEvent<AA, BA, AH, BH, AT, BT>,
-        > + Update<
-            bob::State<AL, BL, AA, BA, AH, BH, AI, BI, AT, BT>,
-            SwapEvent<AA, BA, AH, BH, AT, BT>,
-        > + Clone
-        + DeriveSwapSeed
+    D: state::Insert<SwapCommunication<AL, BL, AA, BA, AI, BI>>
+        + InsertSwapError
+        + Clone
         + HtlcFunded<AL, AA, AH, AI, AT>
         + HtlcFunded<BL, BA, BH, BI, BT>
         + HtlcDeployed<AL, AA, AH, AI, AT>
@@ -38,6 +30,8 @@ where
         + HtlcRedeemed<BL, BA, BH, BI, BT>
         + HtlcRefunded<AL, AA, AH, AI, AT>
         + HtlcRefunded<BL, BA, BH, BI, BT>,
+    Arc<AlphaLedgerState>: From<D>,
+    Arc<BetaLedgerState>: From<D>,
     AL: Clone + Send + Sync + 'static,
     BL: Clone + Send + Sync + 'static,
     AA: Ord + Clone + Send + Sync + 'static,
@@ -51,51 +45,42 @@ where
     Request<AL, BL, AA, BA, AI, BI>: Clone,
     Accept<AI, BI>: Copy,
 {
-    let (request, accept, _) = &accepted;
-
+    let (request, accept, accepted_at) = accepted;
     let id = request.swap_id;
-    let seed = dependencies.derive_swap_seed(id);
+
+    dependencies.insert(id, SwapCommunication::Accepted {
+        request: request.clone(),
+        response: accept,
+    });
+
+    let (alpha_htlc_params, beta_htlc_params) = {
+        let swap = OngoingSwap::new(request, accept);
+        (swap.alpha_htlc_params(), swap.beta_htlc_params())
+    };
+
     tracing::trace!("initialising accepted swap: {}", id);
 
-    match role {
-        Role::Alice => {
-            let state = alice::State::accepted(request.clone(), *accept, seed);
-            dependencies.insert(id, state);
+    tokio::task::spawn(
+        create_watcher::<_, _, _, _, AH, _, AT>(
+            dependencies.clone(),
+            Arc::<AlphaLedgerState>::from(dependencies.clone()),
+            id,
+            alpha_htlc_params,
+            accepted_at,
+        )
+        .instrument(tracing::info_span!("alpha")),
+    );
 
-            tokio::task::spawn(create_alpha_watcher::<
-                D,
-                alice::State<AL, BL, AA, BA, AH, BH, AI, BI, AT, BT>,
-                AI,
-                BI,
-            >(dependencies.clone(), accepted.clone()));
-
-            tokio::task::spawn(create_beta_watcher::<
-                D,
-                alice::State<AL, BL, AA, BA, AH, BH, AI, BI, AT, BT>,
-                AI,
-                BI,
-            >(dependencies.clone(), accepted));
-        }
-        Role::Bob => {
-            let state: bob::State<AL, BL, AA, BA, AH, BH, AI, BI, AT, BT> =
-                bob::State::accepted(request.clone(), *accept, seed);
-            dependencies.insert(id, state);
-
-            tokio::task::spawn(create_alpha_watcher::<
-                D,
-                bob::State<AL, BL, AA, BA, AH, BH, AI, BI, AT, BT>,
-                AI,
-                BI,
-            >(dependencies.clone(), accepted.clone()));
-
-            tokio::task::spawn(create_beta_watcher::<
-                D,
-                bob::State<AL, BL, AA, BA, AH, BH, AI, BI, AT, BT>,
-                AI,
-                BI,
-            >(dependencies.clone(), accepted));
-        }
-    };
+    tokio::task::spawn(
+        create_watcher::<_, _, _, _, BH, _, BT>(
+            dependencies.clone(),
+            Arc::<BetaLedgerState>::from(dependencies.clone()),
+            id,
+            beta_htlc_params,
+            accepted_at,
+        )
+        .instrument(tracing::info_span!("beta")),
+    );
 
     Ok(())
 }

@@ -1,11 +1,14 @@
 pub mod actions;
 mod facade;
 pub mod ledger;
+pub mod ledger_states;
 pub mod rfc003;
-pub mod state_store;
+pub mod state;
+pub mod swap_communication_state;
+mod swap_error_state;
 mod swap_id;
 
-pub use self::{facade::*, swap_id::*};
+pub use self::{facade::*, swap_communication_state::*, swap_error_state::*, swap_id::*};
 
 use serde::{Deserialize, Serialize};
 

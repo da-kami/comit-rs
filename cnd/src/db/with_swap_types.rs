@@ -9,12 +9,12 @@ macro_rules! _match_role {
         match $role {
             Role::Alice => {
                 #[allow(dead_code)]
-                type ROLE = alice::State<AL, BL, AA, BA, AH, BH, AI, BI, AT, BT>;
+                type ROLESTATE = alice::State<AL, BL, AA, BA, AH, BH, AI, BI, AT, BT>;
                 $fn
             }
             Role::Bob => {
                 #[allow(dead_code)]
-                type ROLE = bob::State<AL, BL, AA, BA, AH, BH, AI, BI, AT, BT>;
+                type ROLESTATE = bob::State<AL, BL, AA, BA, AH, BH, AI, BI, AT, BT>;
                 $fn
             }
         }
