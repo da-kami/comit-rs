@@ -89,7 +89,7 @@ pub fn build_rfc003_siren_entity(
     let id = swap.swap_id;
 
     with_swap_types!(types, {
-        let swap_has_failed = dependencies.swap_error_state.get(&id);
+        let swap_has_failed = dependencies.swap_error_state.has_failed(&id);
 
         if swap_has_failed && on_fail == OnFail::Error {
             return Err(anyhow!(HttpApiProblem::with_title_and_type_from_status(

@@ -24,7 +24,7 @@ use crate::{
             },
             SwapCommunication,
         },
-        state, InsertSwapError, SwapCommunicationState, SwapErrorState, SwapId,
+        state, InsertFailedSwap, SwapCommunicationState, SwapErrorState, SwapId,
     },
     transaction,
 };
@@ -104,9 +104,9 @@ impl From<Facade> for Arc<BetaLedgerState> {
     }
 }
 
-impl InsertSwapError for Facade {
-    fn insert_swap_error(&self, id: &SwapId) {
-        self.swap_error_state.insert(&id)
+impl InsertFailedSwap for Facade {
+    fn insert_failed_swap(&self, id: &SwapId) {
+        self.swap_error_state.insert_failed_swap(&id)
     }
 }
 

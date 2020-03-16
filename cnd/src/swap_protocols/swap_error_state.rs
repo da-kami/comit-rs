@@ -5,15 +5,17 @@ use std::{collections::HashMap, sync::Mutex};
 pub struct SwapErrorState(Mutex<HashMap<SwapId, bool>>);
 
 impl SwapErrorState {
-    pub fn get(&self, id: &SwapId) -> bool {
+    pub fn has_failed(&self, id: &SwapId) -> bool {
         *self.0.lock().unwrap().get(id).unwrap_or(&false)
-    }
-
-    pub fn insert(&self, id: &SwapId) {
-        let _ = self.0.lock().unwrap().insert(*id, true);
     }
 }
 
-pub trait InsertSwapError {
-    fn insert_swap_error(&self, id: &SwapId);
+pub trait InsertFailedSwap {
+    fn insert_failed_swap(&self, id: &SwapId);
+}
+
+impl InsertFailedSwap for SwapErrorState {
+    fn insert_failed_swap(&self, id: &SwapId) {
+        let _ = self.0.lock().unwrap().insert(*id, true);
+    }
 }

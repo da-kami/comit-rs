@@ -7,7 +7,7 @@ use crate::{
             events::{HtlcDeployed, HtlcFunded, HtlcRedeemed, HtlcRefunded},
             Accept, Request, SwapCommunication,
         },
-        state, InsertSwapError,
+        state, InsertFailedSwap,
     },
 };
 use std::sync::Arc;
@@ -20,7 +20,7 @@ pub fn init_accepted_swap<D, AL, BL, AA, BA, AH, BH, AI, BI, AT, BT>(
 ) -> anyhow::Result<()>
 where
     D: state::Insert<SwapCommunication<AL, BL, AA, BA, AI, BI>>
-        + InsertSwapError
+        + InsertFailedSwap
         + Clone
         + HtlcFunded<AL, AA, AH, AI, AT>
         + HtlcFunded<BL, BA, BH, BI, BT>

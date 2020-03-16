@@ -9,7 +9,7 @@ use crate::{
             Accept, LedgerState, Request, SecretHash,
         },
         state,
-        swap_error_state::InsertSwapError,
+        swap_error_state::InsertFailedSwap,
         HashFunction, SwapId,
     },
     timestamp::Timestamp,
@@ -40,7 +40,7 @@ pub async fn create_watcher<D, S, L, A, H, I, T>(
     htlc_params: HtlcParams<L, A, I>,
     accepted_at: NaiveDateTime,
 ) where
-    D: InsertSwapError
+    D: InsertFailedSwap
         + HtlcFunded<L, A, H, I, T>
         + HtlcDeployed<L, A, H, I, T>
         + HtlcRedeemed<L, A, H, I, T>
@@ -78,7 +78,7 @@ pub async fn create_watcher<D, S, L, A, H, I, T>(
             }
             GeneratorState::Complete(Err(e)) => {
                 tracing::error!("swap {} failed with {:?}", id, e);
-                dependencies.insert_swap_error(&id);
+                dependencies.insert_failed_swap(&id);
                 return;
             }
         }
