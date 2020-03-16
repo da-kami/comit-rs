@@ -53,10 +53,7 @@ where
         response: accept,
     });
 
-    let (alpha_htlc_params, beta_htlc_params) = {
-        let swap = OngoingSwap::new(request, accept);
-        (swap.alpha_htlc_params(), swap.beta_htlc_params())
-    };
+    let swap = OngoingSwap::new(request, accept);
 
     tracing::trace!("initialising accepted swap: {}", id);
 
@@ -65,7 +62,7 @@ where
             dependencies.clone(),
             Arc::<AlphaLedgerState>::from(dependencies.clone()),
             id,
-            alpha_htlc_params,
+            swap.alpha_htlc_params(),
             accepted_at,
         )
         .instrument(tracing::info_span!("alpha")),
@@ -76,7 +73,7 @@ where
             dependencies.clone(),
             Arc::<BetaLedgerState>::from(dependencies.clone()),
             id,
-            beta_htlc_params,
+            swap.beta_htlc_params(),
             accepted_at,
         )
         .instrument(tracing::info_span!("beta")),
