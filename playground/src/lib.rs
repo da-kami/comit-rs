@@ -20,12 +20,11 @@ use wasm_timer::{Delay, Instant};
 
 const PING_SIZE: usize = 32;
 
-pub struct AnnounceBehaviour {
-    config: AnnounceConfig,
+pub struct Announce {
     events: VecDeque<AnnounceEvent>,
 }
 
-impl UpgradeInfo for AnnounceBehaviour {
+impl UpgradeInfo for Announce {
     type Info = &'static [u8];
     type InfoIter = iter::Once<Self::Info>;
 
@@ -34,7 +33,7 @@ impl UpgradeInfo for AnnounceBehaviour {
     }
 }
 
-impl<TSocket> InboundUpgrade<TSocket> for AnnounceBehaviour
+impl<TSocket> InboundUpgrade<TSocket> for Announce
 where
     TSocket: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
@@ -54,7 +53,7 @@ where
     }
 }
 
-impl<TSocket> OutboundUpgrade<TSocket> for AnnounceBehaviour
+impl<TSocket> OutboundUpgrade<TSocket> for Announce
 where
     TSocket: AsyncRead + AsyncWrite + Send + Unpin + 'static,
 {
@@ -85,11 +84,10 @@ where
     }
 }
 
-impl AnnounceBehaviour {
-    pub fn new(config: AnnounceConfig) -> Self {
-        AnnounceBehaviour {
+impl Announce {
+    pub fn new() -> Self {
+        Announce {
             events: VecDeque::new(),
-            config,
         }
     }
 }
@@ -137,81 +135,15 @@ impl std::error::Error for AnnounceFailure {
 }
 
 #[derive(Debug)]
-pub struct AnnounceEvent;
-
-/// The configuration for outbound pings.
-#[derive(Clone, Debug, Default)]
-pub struct AnnounceConfig {
-    /// The timeout of an outbound ping.
-    timeout: Duration,
-    /// The maximum number of failed outbound announce before the associated
-    /// connection is deemed unhealthy, indicating to the `Swarm` that it
-    /// should be closed.
-    max_failures: u32,
-    /// Whether the connection should generally be kept alive unless
-    /// `max_failures` occur.
-    keep_alive: bool,
-}
-
-impl AnnounceConfig {
-    /// Creates a new `AnnounceConfig` with the following default settings:
-    ///
-    ///   * [`AnnounceConfig::with_interval`] 15s
-    ///   * [`AnnounceConfig::with_timeout`] 20s
-    ///   * [`AnnounceConfig::with_max_failures`] 1
-    ///   * [`AnnounceConfig::with_keep_alive`] false
-    ///
-    /// These settings have the following effect:
-    ///
-    ///   * A ping is sent every 15 seconds on a healthy connection.
-    ///   * Every ping sent must yield a response within 20 seconds in order to
-    ///     be successful.
-    ///   * A single ping failure is sufficient for the connection to be subject
-    ///     to being closed.
-    ///   * The connection may be closed at any time as far as the ping protocol
-    ///     is concerned, i.e. the ping protocol itself does not keep the
-    ///     connection alive.
-    pub fn new() -> Self {
-        Self {
-            timeout: Duration::from_secs(20),
-            max_failures: 1,
-            keep_alive: false,
-        }
-    }
-
-    /// Sets the ping timeout.
-    pub fn with_timeout(mut self, d: Duration) -> Self {
-        self.timeout = d;
-        self
-    }
-
-    /// Sets the maximum number of consecutive ping failures upon which the
-    /// remote peer is considered unreachable and the connection closed.
-    pub fn with_max_failures(mut self, n: u32) -> Self {
-        self.max_failures = n;
-        self
-    }
-
-    /// Sets whether the ping protocol itself should keep the connection alive,
-    /// apart from the maximum allowed failures.
-    ///
-    /// By default, the ping protocol itself allows the connection to be closed
-    /// at any time, i.e. in the absence of ping failures the connection
-    /// lifetime is determined by other protocol handlers.
-    ///
-    /// If the maximum number of allowed ping failures is reached, the
-    /// connection is always terminated as a result of
-    /// [`ProtocolsHandler::poll`] returning an error, regardless of the
-    /// keep-alive setting.
-    pub fn with_keep_alive(mut self, b: bool) -> Self {
-        self.keep_alive = b;
-        self
-    }
+pub struct AnnounceEvent {
+    /// The peer ID of the remote.
+    pub peer: PeerId,
+    /// The result of an inbound or outbound ping.
+    pub result: AnnounceResult,
 }
 
 pub struct AnnounceHandler {
     /// Configuration options.
-    config: AnnounceConfig,
     /// The timer for when to send the next ping.
     next_ping: Delay,
     /// The pending results from inbound or outbound pings, ready
@@ -222,9 +154,8 @@ pub struct AnnounceHandler {
 }
 
 impl AnnounceHandler {
-    pub fn new(config: AnnounceConfig) -> Self {
+    pub fn new() -> Self {
         AnnounceHandler {
-            config,
             next_ping: Delay::new(Duration::new(0, 0)),
             pending_results: VecDeque::with_capacity(2),
             failures: 0,
@@ -236,12 +167,12 @@ impl ProtocolsHandler for AnnounceHandler {
     type InEvent = Void;
     type OutEvent = AnnounceResult;
     type Error = AnnounceFailure;
-    type InboundProtocol = AnnounceBehaviour;
-    type OutboundProtocol = AnnounceBehaviour;
+    type InboundProtocol = Announce;
+    type OutboundProtocol = Announce;
     type OutboundOpenInfo = ();
 
-    fn listen_protocol(&self) -> SubstreamProtocol<AnnounceBehaviour> {
-        SubstreamProtocol::new(AnnounceBehaviour::new(self.config.clone()))
+    fn listen_protocol(&self) -> SubstreamProtocol<Announce> {
+        SubstreamProtocol::new(Announce::new())
     }
 
     fn inject_fully_negotiated_inbound(&mut self, _: ()) {
@@ -271,38 +202,26 @@ impl ProtocolsHandler for AnnounceHandler {
     }
 
     fn connection_keep_alive(&self) -> KeepAlive {
-        if self.config.keep_alive {
-            KeepAlive::Yes
-        } else {
-            KeepAlive::No
-        }
+        KeepAlive::Yes
     }
 
     fn poll(
         &mut self,
         cx: &mut Context,
-    ) -> Poll<ProtocolsHandlerEvent<AnnounceBehaviour, (), AnnounceResult, Self::Error>> {
+    ) -> Poll<ProtocolsHandlerEvent<Announce, (), AnnounceResult, Self::Error>> {
         if let Some(result) = self.pending_results.pop_back() {
             if let Ok(AnnounceSuccess::Announce) = result {
                 self.failures = 0;
-                // self.next_ping.reset(self.config.interval);
             }
             if let Err(e) = result {
-                self.failures += 1;
-                if self.failures >= self.config.max_failures {
-                    return Poll::Ready(ProtocolsHandlerEvent::Close(e));
-                } else {
-                    return Poll::Ready(ProtocolsHandlerEvent::Custom(Err(e)));
-                }
+                return Poll::Ready(ProtocolsHandlerEvent::Custom(Err(e)));
             }
             return Poll::Ready(ProtocolsHandlerEvent::Custom(result));
         }
 
         match Future::poll(Pin::new(&mut self.next_ping), cx) {
             Poll::Ready(Ok(())) => {
-                self.next_ping.reset(self.config.timeout);
-                let protocol = SubstreamProtocol::new(AnnounceBehaviour::new(self.config.clone()))
-                    .with_timeout(self.config.timeout);
+                let protocol = SubstreamProtocol::new(Announce::new());
                 Poll::Ready(ProtocolsHandlerEvent::OutboundSubstreamRequest { protocol, info: () })
             }
             Poll::Pending => Poll::Pending,
@@ -313,36 +232,25 @@ impl ProtocolsHandler for AnnounceHandler {
     }
 }
 
-impl NetworkBehaviour for AnnounceBehaviour {
+impl NetworkBehaviour for Announce {
     type ProtocolsHandler = AnnounceHandler;
     type OutEvent = AnnounceEvent;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
-        AnnounceHandler::new(self.config.clone())
+        AnnounceHandler::new()
     }
 
     fn addresses_of_peer(&mut self, _peer_id: &PeerId) -> Vec<Multiaddr> {
         Vec::new()
     }
 
-    fn inject_connected(&mut self, _peer_id: PeerId, _endpoint: ConnectedPoint) {
-        unimplemented!()
-    }
+    fn inject_connected(&mut self, _peer_id: PeerId, _endpoint: ConnectedPoint) {}
 
-    fn inject_disconnected(&mut self, _peer_id: &PeerId, _endpoint: ConnectedPoint) {
-        unimplemented!()
-    }
+    fn inject_disconnected(&mut self, _peer_id: &PeerId, _endpoint: ConnectedPoint) {}
 
-    fn inject_node_event(&mut self, _peer_id: PeerId, _result: AnnounceResult) {
-        unimplemented!()
+    fn inject_node_event(&mut self, peer: PeerId, result: AnnounceResult) {
+        self.events.push_front(AnnounceEvent { peer, result })
     }
-
-    // fn poll(&mut self, cx: &mut Context,
-    //         params: &mut impl PollParameters<SupportedProtocolsIter=_,
-    //             ListenedAddressesIter=_, ExternalAddressesIter=_>)
-    //     -> Poll<NetworkBehaviourAction<_, Self::OutEvent>> {
-    //     unimplemented!()
-    // }
 
     fn poll(
         &mut self,

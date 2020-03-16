@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_std::task;
 use futures::{future, prelude::*};
 use libp2p::{identity, PeerId, Swarm};
-use playground::{AnnounceBehaviour, AnnounceConfig};
+use playground::Announce;
 use std::{
     error::Error,
     task::{Context, Poll},
@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // keep the connection alive, so a continuous sequence of pings
     // can be observed.
     // let behaviour = Ping::new(PingConfig::new().with_keep_alive(true));
-    let behaviour = AnnounceBehaviour::new(AnnounceConfig::new().with_keep_alive(true));
+    let behaviour = Announce::new();
 
     // Create a Swarm that establishes connections through the given transport
     // and applies the ping behaviour on each connection.
