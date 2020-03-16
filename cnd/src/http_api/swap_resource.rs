@@ -117,7 +117,7 @@ pub fn build_rfc003_siren_entity(
         let secret_source = dependencies.derive_swap_seed(id);
 
         let actions = {
-            let state = ROLESTATE::new(
+            let state = RoleState::new(
                 swap_communication,
                 alpha_ledger_state,
                 beta_ledger_state,

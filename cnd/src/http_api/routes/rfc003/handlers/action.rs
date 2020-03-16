@@ -58,7 +58,7 @@ pub async fn handle_action(
             .ok_or_else(|| anyhow::anyhow!("beta ledger state not found for {}", swap_id))?;
         let secret_source = dependencies.derive_swap_seed(swap_id);
 
-        let state = ROLESTATE::new(
+        let state = RoleState::new(
             swap_communication,
             alpha_ledger_state,
             beta_ledger_state,
