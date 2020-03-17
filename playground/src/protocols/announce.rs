@@ -1,8 +1,8 @@
+use crate::{SwapDigest, SwapId};
 use futures::{future::BoxFuture, AsyncRead, AsyncWrite};
 use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{io, iter, marker::PhantomData};
-use crate::{SwapId, SwapDigest};
 
 const INFO: &'static str = "/comit/swap/announce/1.0.0";
 
@@ -10,17 +10,10 @@ const INFO: &'static str = "/comit/swap/announce/1.0.0";
 /// - Dialer sends SwapDigest to listener
 /// - Listener receives SwapDigest and sends SwapId
 /// - Dialer reads SwapId
+pub struct AnnounceAndReceiveConfirmation(SwapId);
+pub struct ConfirmationReceived(SwapDigest, SwapId);
 
-/// Represents a prototype for an upgrade to handle the sender side of the
-/// announce protocol.
-///
-/// This struct contains the message that should be sent to the other peer.
-#[derive(Clone, Copy, Debug)]
-pub struct OutboundConfig {
-    swap_digest: SwapDigest,
-}
-
-impl UpgradeInfo for OutboundConfig {
+impl UpgradeInfo for Outbound {
     type Info = &'static [u8];
     type InfoIter = iter::Once<Self::Info>;
 
@@ -29,11 +22,11 @@ impl UpgradeInfo for OutboundConfig {
     }
 }
 
-impl<TSocket> OutboundUpgrade<TSocket> for OutboundConfig
-    where
-        TSocket: AsyncWrite + Unpin + Send + 'static,
+impl<TSocket> OutboundUpgrade<TSocket> for AnnounceAndReceiveConfirmation
+where
+    TSocket: AsyncWrite + Unpin + Send + 'static,
 {
-    type Output = SwapId;
+    type Output = ConfirmationReceived;
     type Error = Error;
     type Future = BoxFuture<'static, Result<Self::Output, Self::Error>>;
 
@@ -44,26 +37,25 @@ impl<TSocket> OutboundUpgrade<TSocket> for OutboundConfig
             String::from_utf8_lossy(info)
         );
         Box::pin(async move {
-            let bytes = serde_json::to_vec(&self.swap_digest)?;
-            upgrade::write_one(&mut socket, &bytes).await?;
-
-            let message = upgrade::read_one(&mut socket, 1024).await?;
-            let mut de = serde_json::Deserializer::from_slice(&message);
-            let swap_id = SwapId::deserialize(&mut de)?;
-
-            Ok(swap_id)
+            match self {
+                AnnounceAndReceiveConfirmation::RequestForConfirmation(digest) => {
+                    let bytes = serde_json::to_vec(&swap_id)?;
+                    upgrade::write_one(&mut socket, &bytes).await?;
+                    Ok()
+                }
+                AnnounceAndReceiveConfirmation::Confirmed(digest, swap_id) => {
+                    let bytes = serde_json::to_vec(&swap_id)?;
+                    upgrade::write_one(&mut socket, &bytes).await?;
+                }
+            }
         })
     }
 }
 
-/// Represents a prototype for an upgrade to handle the receiver side of the
-/// announce protocol.
-#[derive(Clone, Copy, Debug)]
-pub struct InboundConfig {
-    swap_id: SwapId,
-}
+pub struct ReceiveAnnounceAndSendConfirmation;
+pub struct AnnounceReceived(SwapDigest);
 
-impl UpgradeInfo for InboundConfig {
+impl UpgradeInfo for ReceiveAnnounceAndSendConfirmation {
     type Info = &'static [u8];
     type InfoIter = iter::Once<Self::Info>;
 
@@ -72,11 +64,11 @@ impl UpgradeInfo for InboundConfig {
     }
 }
 
-impl<TSocket> InboundUpgrade<TSocket> for InboundConfig
-    where
-        TSocket: AsyncRead + Unpin + Send + 'static,
+impl<TSocket> InboundUpgrade<TSocket> for ReceiveAnnounceAndSendConfirmation
+where
+    TSocket: AsyncRead + Unpin + Send + 'static,
 {
-    type Output = SwapDigest;
+    type Output = AnnounceReceived;
     type Error = Error;
     type Future = BoxFuture<'static, Result<Self::Output, Self::Error>>;
 
@@ -89,9 +81,9 @@ impl<TSocket> InboundUpgrade<TSocket> for InboundConfig
         Box::pin(async move {
             let message = upgrade::read_one(&mut socket, 1024).await?;
             let mut de = serde_json::Deserializer::from_slice(&message);
-            let swap_digest = SwapDigest::deserialize(&mut de)?;
+            let swap_digest = SwapDigest::deserialize(&mut de)?.unwrap();
 
-            Ok(swap_digest)
+            Ok(AnnounceReceived(swap_digest))
         })
     }
 }

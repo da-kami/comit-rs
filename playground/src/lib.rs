@@ -64,5 +64,5 @@ pub struct AnnounceEvent {
     /// The peer ID of the remote.
     pub peer: PeerId,
     /// The result of an inbound or outbound ping.
-    pub result: AnnounceResult,
+    pub result: AnnounceMessage,
 }

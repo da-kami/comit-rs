@@ -1,20 +1,20 @@
-use futures::prelude::*;
+use crate::{
+    handler::AnnounceHandler, AnnounceEvent, AnnounceMessage, AnnounceResult, SwapDigest, SwapId,
+    PING_SIZE,
+};
+use futures::{future::BoxFuture, prelude::*};
 use libp2p::PeerId;
 use libp2p_core::{ConnectedPoint, InboundUpgrade, Multiaddr, OutboundUpgrade, UpgradeInfo};
 use libp2p_swarm::{NetworkBehaviour, NetworkBehaviourAction, PollParameters};
+use rand::{distributions, prelude::*};
 use std::{
     collections::VecDeque,
-    iter,
+    io, iter,
     task::{Context, Poll},
+    time::Duration,
 };
 use void::Void;
-// use thiserror::Error;
-use crate::{handler::AnnounceHandler, AnnounceEvent, AnnounceResult, PING_SIZE, SwapDigest, SwapId};
-use futures::future::BoxFuture;
-use rand::{distributions, prelude::*};
-use std::{io, time::Duration};
 use wasm_timer::Instant;
-
 
 pub struct Announce {
     events: VecDeque<AnnounceEvent>,
@@ -43,13 +43,12 @@ impl NetworkBehaviour for Announce {
         Vec::new()
     }
 
-    ///
     fn inject_connected(&mut self, _peer_id: PeerId, _endpoint: ConnectedPoint) {}
 
     fn inject_disconnected(&mut self, _peer_id: &PeerId, _endpoint: ConnectedPoint) {}
 
     /// Pushes protocol handler events to the network behaviour
-    fn inject_node_event(&mut self, peer: PeerId, result: AnnounceResult) {
+    fn inject_node_event(&mut self, peer: PeerId, result: AnnounceMessage) {
         self.events.push_front(AnnounceEvent { peer, result })
     }
 
@@ -60,9 +59,18 @@ impl NetworkBehaviour for Announce {
         _: &mut impl PollParameters,
     ) -> Poll<NetworkBehaviourAction<Void, AnnounceEvent>> {
         if let Some(e) = self.events.pop_back() {
-            //Poll::Ready(NetworkBehaviourAction::DialPeer {})
-            Poll::Ready(NetworkBehaviourAction::GenerateEvent(e))
-        // Poll::Pending
+            // Poll::Ready(NetworkBehaviourAction::DialPeer {})
+            match e.result {
+                AnnounceMessage::Id(..) => {
+                    // Close connection
+                    Poll::Pending
+                }
+                AnnounceMessage::Digest(digest) => {
+                    // Find swap id and pass it back as an event
+                    // Poll::SendEvent{..}
+                    Poll::Pending
+                }
+            }
         } else {
             Poll::Pending
         }
