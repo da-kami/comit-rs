@@ -11,7 +11,7 @@ use std::{
 use void::Void;
 
 use crate::{
-    Announce, AnnounceFailure, AnnounceResult, AnnounceSuccess, Announcement, Confirmation,
+    Announce, AnnounceFailure, AnnounceMessage, SwapDigest, SwapId,
 };
 use std::time::Duration;
 use wasm_timer::Delay;
@@ -19,20 +19,28 @@ use wasm_timer::Delay;
 pub struct AnnounceHandler {
     /// The pending results from inbound or outbound pings, ready
     /// to be `poll()`ed.
-    pending_results: VecDeque<AnnounceResult>,
+    pending_results: VecDeque<AnnounceMessage>,
+    state: AnnounceState,
+}
+
+pub enum AnnounceState {
+    Started,
+    Announced(SwapDigest),
+    Confirmed(SwapDigest, SwapId),
 }
 
 impl AnnounceHandler {
     pub fn new() -> Self {
         AnnounceHandler {
             pending_results: VecDeque::with_capacity(2),
+            state: AnnounceState::Started,
         }
     }
 }
 
 impl ProtocolsHandler for AnnounceHandler {
-    type InEvent = Announcement;
-    type OutEvent = Confirmation;
+    type InEvent = SwapDigest;
+    type OutEvent = SwapId;
     type Error = AnnounceFailure;
     type InboundProtocol = Announce;
     type OutboundProtocol = Announce;
@@ -42,18 +50,18 @@ impl ProtocolsHandler for AnnounceHandler {
         SubstreamProtocol::new(Announce::new())
     }
 
-    /// Injects/registers? upgraded succesfully upgraded inbound
-    fn inject_fully_negotiated_inbound(&mut self, _rtt: Confirmation) {
+    /// Injects/registers? succesfully upgraded inbound connection?
+    fn inject_fully_negotiated_inbound(&mut self, rtt: SwapDigest) {
         // An announcement remote peer has been confirmed.
         self.pending_results
-            .push_front(Ok(AnnounceSuccess::Announce));
+            .push_front(AnnounceMessage::Digest(rtt));
     }
 
-    /// Injects/registers? succesfully upgraded outbound substream
-    fn inject_fully_negotiated_outbound(&mut self, _rtt: Announcement, _info: ()) {
+    /// Injects/registers? succesfully upgraded outbound connection?
+    fn inject_fully_negotiated_outbound(&mut self, rtt: SwapId, _info: ()) {
         // An announcement initiated by the local peer was confirmed by the remote.
         self.pending_results
-            .push_front(Ok(AnnounceSuccess::Confirmation));
+            .push_front(AnnounceMessage::Id(rtt));
     }
 
     fn inject_event(&mut self, _: Void) {}
@@ -70,33 +78,31 @@ impl ProtocolsHandler for AnnounceHandler {
         }))
     }
 
+    /// kill connection if confirmation received ie. announce protocol has completed
     fn connection_keep_alive(&self) -> KeepAlive {
-        KeepAlive::Yes
+        match self.state {
+            AnnounceState::Started => KeepAlive::Yes,
+            AnnounceState::Announced(_) => KeepAlive::Yes,
+            AnnounceState::Confirmed(_,_) => KeepAlive::No,
+        }
     }
 
     fn poll(
         &mut self,
         cx: &mut Context,
-    ) -> Poll<ProtocolsHandlerEvent<Announce, (), AnnounceResult, Self::Error>> {
-        if let Some(result) = self.pending_results.pop_back() {
-            if let Ok(AnnounceSuccess::Announce) = result {
-                // self.failures = 0;
+    ) -> Poll<ProtocolsHandlerEvent<Announce, (), , Self::Error>> {
+        match self.pending_results.pop_back() {
+            AnnounceMessage::Digest(digest) => {
+                match self.state {
+                    AnnounceState::Announced(digest) => self.state = AnnounceState::Confirmed(digest, id),
+                    _ => ()
+                }
             }
-            if let Err(e) = result {
-                return Poll::Ready(ProtocolsHandlerEvent::Custom(Err(e)));
-            }
-            return Poll::Ready(ProtocolsHandlerEvent::Custom(result));
-        }
-
-        // match Future::poll(Pin::new(&mut self.next_ping), cx) {
-        match Future::poll(Pin::new(&mut self), cx) {
-            Poll::Ready(Ok(())) => {
-                let protocol = SubstreamProtocol::new(Announce::new());
-                Poll::Ready(ProtocolsHandlerEvent::OutboundSubstreamRequest { protocol, info: () })
-            }
-            Poll::Pending => Poll::Pending,
-            Poll::Ready(Err(_)) => {
-                Poll::Ready(ProtocolsHandlerEvent::Close(AnnounceFailure::Timeout))
+            AnnounceMessage::Id(id)) = {
+                match self.state {
+                    AnnounceState::Started => self.state = AnnounceState::Announced(digest),
+                    _ => ()
+                }
             }
         }
     }

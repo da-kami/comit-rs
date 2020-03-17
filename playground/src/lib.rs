@@ -4,30 +4,30 @@ use std::fmt;
 
 mod behaviour;
 mod handler;
+mod protocols;
+use serde::{Deserialize, Serialize};
 
 pub use behaviour::Announce;
 
 const PING_SIZE: usize = 32;
 
 /// The result of an inbound or outbound ping.
-pub type AnnounceResult = Result<AnnounceSuccess, AnnounceFailure>;
+pub type AnnounceResult = Result<AnnounceMessage, AnnounceFailure>;
 
 /// The successful result of processing an inbound or outbound ping.
 #[derive(Debug)]
-pub enum AnnounceSuccess {
+pub enum AnnounceMessage {
     /// Received an announce and sent back a confirmation.
-    Confirmation,
+    Digest(SwapDigest),
     /// Send and announce
-    Announce,
+    Id(SwapId),
 }
 
-pub struct AnnonunceMessage;
+#[derive(Deserialize)]
+pub struct SwapDigest;
 
-pub struct Announcement;
-
-pub struct Confirmation;
-
-pub struct ConfirmationMessage;
+#[derive(Deserialize)]
+pub struct SwapId;
 
 /// An outbound announce failure.
 #[derive(Debug)]
