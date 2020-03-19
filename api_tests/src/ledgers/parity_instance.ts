@@ -4,9 +4,14 @@ import tmp from "tmp";
 import waitForLogMessage from "../wait_for_log_message";
 import { promisify } from "util";
 import { writeFileAsync } from "../utils";
+import { existsAsync } from "../utils";
 import getPort from "get-port";
 import { Logger } from "log4js";
 import { LedgerInstance } from "./index";
+import findCacheDir from "find-cache-dir";
+import download from "download";
+import { platform } from "os";
+import chmod from "chmod";
 
 const openAsync = promisify(fs.open);
 
@@ -40,9 +45,7 @@ export class ParityInstance implements LedgerInstance {
     ) {}
 
     public async start() {
-        const bin = process.env.PARITY_BIN
-            ? process.env.PARITY_BIN
-            : this.projectRoot + "/blockchain_nodes/parity/parity";
+        const bin = await this.findBinary();
 
         this.logger.info("Using binary", bin);
 
@@ -89,6 +92,53 @@ export class ParityInstance implements LedgerInstance {
         await writeFileAsync(this.pidFile, this.process.pid, {
             encoding: "utf-8",
         });
+    }
+
+    private async findBinary(): Promise<string> {
+        const envOverride = process.env.PARITY_BIN;
+
+        if (envOverride) {
+            this.logger.info(
+                "Overriding parity bin with PARITY_BIN: ",
+                envOverride
+            );
+
+            return envOverride;
+        }
+
+        const cacheDir = findCacheDir({
+            name: "parity-2.7.2",
+            create: true,
+            thunk: true,
+        });
+        const binary = cacheDir("parity");
+
+        if (await existsAsync(binary)) {
+            return binary;
+        }
+
+        this.logger.info("Binary not found at ", binary, ", downloading ...");
+
+        await download(ParityInstance.downloadUrl(), cacheDir(""));
+
+        chmod(binary, {
+            execute: true,
+        });
+
+        this.logger.info("Download completed");
+
+        return binary;
+    }
+
+    private static downloadUrl() {
+        switch (platform()) {
+            case "darwin":
+                return "https://releases.parity.io/ethereum/v2.7.2/x86_64-apple-darwin/parity";
+            case "linux":
+                return "https://releases.parity.io/ethereum/v2.7.2/x86_64-unknown-linux-gnu/parity";
+            default:
+                throw new Error(`Unsupported platform ${platform()}`);
+        }
     }
 
     public get rpcUrl() {

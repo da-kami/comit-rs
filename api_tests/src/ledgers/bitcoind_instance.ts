@@ -1,11 +1,14 @@
 import { ChildProcess, spawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
-import { writeFileAsync } from "../utils";
+import { existsAsync, writeFileAsync } from "../utils";
 import getPort from "get-port";
 import { Logger } from "log4js";
 import waitForLogMessage from "../wait_for_log_message";
 import { BitcoinNodeConfig, LedgerInstance } from "./index";
+import findCacheDir from "find-cache-dir";
+import download from "download";
+import { platform } from "os";
 
 export class BitcoindInstance implements LedgerInstance {
     private process: ChildProcess;
@@ -42,16 +45,8 @@ export class BitcoindInstance implements LedgerInstance {
     ) {}
 
     public async start() {
-        const bin = process.env.BITCOIND_BIN
-            ? process.env.BITCOIND_BIN
-            : path.join(
-                  this.projectRoot,
-                  "blockchain_nodes",
-                  "bitcoin",
-                  "bitcoin-0.17.0",
-                  "bin",
-                  "bitcoind"
-              );
+        const bin = await this.findBinary();
+
         this.logger.info("Using binary", bin);
 
         await this.createConfigFile(this.dataDir);
@@ -99,6 +94,52 @@ export class BitcoindInstance implements LedgerInstance {
             dataDir: this.getDataDir(),
             rpcUrl: `http://localhost:${this.rpcPort}`,
         };
+    }
+
+    private async findBinary(): Promise<string> {
+        const envOverride = process.env.BITCOIND_BIN;
+
+        if (envOverride) {
+            this.logger.info(
+                "Overriding bitcoind bin with BITCOIND_BIN: ",
+                envOverride
+            );
+
+            return envOverride;
+        }
+
+        const cacheDir = findCacheDir({
+            name: "bitcoin-core-0.17.0",
+            create: true,
+            thunk: true,
+        });
+        const binary = cacheDir("bitcoin-0.17.0", "bin", "bitcoind");
+
+        if (await existsAsync(binary)) {
+            return binary;
+        }
+
+        this.logger.info("Binary not found at ", binary, ", downloading ...");
+
+        await download(BitcoindInstance.downloadUrl(), cacheDir(""), {
+            decompress: true,
+            extract: true,
+        });
+
+        this.logger.info("Download completed");
+
+        return binary;
+    }
+
+    private static downloadUrl() {
+        switch (platform()) {
+            case "darwin":
+                return "https://bitcoincore.org/bin/bitcoin-core-0.17.0/bitcoin-0.17.0-osx64.tar.gz";
+            case "linux":
+                return "https://bitcoincore.org/bin/bitcoin-core-0.17.0/bitcoin-0.17.0-x86_64-linux-gnu.tar.gz";
+            default:
+                throw new Error(`Unsupported platform ${platform()}`);
+        }
     }
 
     private logPath() {
