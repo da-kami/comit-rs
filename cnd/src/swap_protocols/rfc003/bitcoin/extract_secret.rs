@@ -1,4 +1,4 @@
-use crate::swap_protocols::rfc003::secret::{Secret, SecretHash};
+use crate::swap_protocols::secret::{Secret, SecretHash};
 use bitcoin::Transaction;
 
 pub fn extract_secret(transaction: &Transaction, secret_hash: &SecretHash) -> Option<Secret> {

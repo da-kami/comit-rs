@@ -7,8 +7,8 @@ use crate::{
     swap_protocols::{
         ledger,
         ledger::{bitcoin, ethereum::ChainId},
-        rfc003::{Accept, Request, SecretHash},
-        HashFunction, Role, SwapId,
+        rfc003::{Accept, Request},
+        HashFunction, Role, SecretHash, SwapId,
     },
     timestamp::Timestamp,
     transaction,

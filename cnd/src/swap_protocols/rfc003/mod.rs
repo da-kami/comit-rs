@@ -8,17 +8,15 @@ pub mod ledger_state;
 pub mod messages;
 
 pub mod actions;
-mod secret;
 
 pub use self::{
     create_swap::create_watcher,
     ledger_state::{HtlcState, LedgerState},
-    secret::{FromErr, Secret, SecretHash},
 };
 
 pub use self::messages::{Accept, Decline, Request};
 
-use crate::seed::SwapSeed;
+use crate::{seed::SwapSeed, swap_protocols::Secret};
 use ::bitcoin::secp256k1::SecretKey;
 
 /// Swap request response as received from peer node acting as Bob.

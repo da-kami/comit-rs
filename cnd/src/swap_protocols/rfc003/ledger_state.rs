@@ -1,5 +1,5 @@
-use crate::swap_protocols::rfc003::{
-    events::{Deployed, Funded, Redeemed, Refunded},
+use crate::swap_protocols::{
+    rfc003::events::{Deployed, Funded, Redeemed, Refunded},
     Secret,
 };
 use serde::Serialize;

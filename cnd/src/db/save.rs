@@ -11,8 +11,8 @@ use crate::{
     identity,
     swap_protocols::{
         ledger::{self, Ethereum},
-        rfc003::{Accept, Decline, Request, SecretHash},
-        HashFunction, Role, SwapId,
+        rfc003::{Accept, Decline, Request},
+        HashFunction, Role, SecretHash, SwapId,
     },
 };
 use async_trait::async_trait;

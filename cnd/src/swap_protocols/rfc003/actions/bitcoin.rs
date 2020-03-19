@@ -6,8 +6,9 @@ use crate::{
         rfc003::{
             actions::{FundAction, RedeemAction, RefundAction},
             create_swap::HtlcParams,
-            DeriveIdentities, Secret,
+            DeriveIdentities,
         },
+        Secret,
     },
 };
 use ::bitcoin::{Amount, OutPoint, Transaction};

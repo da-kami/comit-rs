@@ -1,8 +1,5 @@
 use crate::{
-    swap_protocols::{
-        rfc003::{DeriveIdentities, SecretHash},
-        HashFunction, SwapId,
-    },
+    swap_protocols::{rfc003::DeriveIdentities, HashFunction, SecretHash, SwapId},
     timestamp::Timestamp,
 };
 use serde::{Deserialize, Serialize};

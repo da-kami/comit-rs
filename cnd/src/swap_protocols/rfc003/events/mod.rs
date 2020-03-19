@@ -1,4 +1,4 @@
-use crate::swap_protocols::rfc003::{create_swap::HtlcParams, Secret};
+use crate::swap_protocols::{rfc003::create_swap::HtlcParams, Secret};
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 

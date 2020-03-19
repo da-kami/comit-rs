@@ -14,8 +14,8 @@ use crate::{
                 Deployed, Funded, HtlcDeployed, HtlcFunded, HtlcRedeemed, HtlcRefunded, Redeemed,
                 Refunded,
             },
-            Secret,
         },
+        Secret,
     },
     transaction,
 };

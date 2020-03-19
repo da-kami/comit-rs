@@ -1,7 +1,7 @@
 #![allow(clippy::type_repetition_in_bounds)]
 use crate::{
     http_api::{Http, SwapStatus},
-    swap_protocols::rfc003::{self, SecretHash},
+    swap_protocols::{rfc003, SecretHash},
     timestamp::Timestamp,
 };
 use serde::Serialize;

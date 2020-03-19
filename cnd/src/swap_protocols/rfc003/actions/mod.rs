@@ -2,7 +2,7 @@ pub mod bitcoin;
 pub mod erc20;
 pub mod ether;
 
-use crate::swap_protocols::rfc003::{DeriveIdentities, Secret};
+use crate::swap_protocols::{rfc003::DeriveIdentities, Secret};
 use std::marker::PhantomData;
 
 /// Defines the set of actions available in the RFC003 protocol

@@ -3,13 +3,19 @@ mod facade;
 pub mod ledger;
 pub mod ledger_states;
 pub mod rfc003;
+mod secret;
 pub mod state;
 pub mod swap_communication_states;
 mod swap_error_states;
 mod swap_id;
 
 pub use self::{
-    facade::*, ledger_states::*, swap_communication_states::*, swap_error_states::*, swap_id::*,
+    facade::*,
+    ledger_states::*,
+    secret::{FromErr, Secret, SecretHash},
+    swap_communication_states::*,
+    swap_error_states::*,
+    swap_id::*,
 };
 
 use serde::{Deserialize, Serialize};
