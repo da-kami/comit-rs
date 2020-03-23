@@ -1,4 +1,5 @@
 use crate::swap_protocols::{
+    han,
     rfc003::{create_swap::SwapEvent, LedgerState},
     state::{Get, Insert, Update},
     swap_id::SwapId,
@@ -70,6 +71,40 @@ where
 
         match event {
             SwapEvent::Deployed(deployed) => ledger_state.transition_to_deployed(deployed),
+            SwapEvent::Funded(funded) => ledger_state.transition_to_funded(funded),
+            SwapEvent::Redeemed(redeemed) => {
+                // what if redeemed.secret.hash() != secret_hash in request ??
+
+                ledger_state.transition_to_redeemed(redeemed);
+            }
+            SwapEvent::Refunded(refunded) => ledger_state.transition_to_refunded(refunded),
+        }
+    }
+}
+
+#[async_trait]
+impl<A, H, T, L> Update<han::LedgerState<A, H, T>, han::SwapEvent<A, H, T>> for L
+where
+    L: DerefMut<Target = Mutex<HashMap<SwapId, Box<dyn Any + Send>>>> + Send + Sync + 'static,
+    LedgerState<A, H, T>: 'static,
+    A: Send,
+    H: Send,
+    T: Send,
+{
+    async fn update(&self, key: &SwapId, event: SwapEvent<A, H, T>) {
+        let mut states = self.lock().await;
+        let ledger_state = match states
+            .get_mut(key)
+            .and_then(|state| state.downcast_mut::<LedgerState<A, H, T>>())
+        {
+            Some(state) => state,
+            None => {
+                tracing::warn!("Value not found for key {}", key);
+                return;
+            }
+        };
+
+        match event {
             SwapEvent::Funded(funded) => ledger_state.transition_to_funded(funded),
             SwapEvent::Redeemed(redeemed) => {
                 // what if redeemed.secret.hash() != secret_hash in request ??

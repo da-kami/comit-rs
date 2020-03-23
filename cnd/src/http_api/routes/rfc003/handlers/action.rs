@@ -8,7 +8,6 @@ use crate::{
         route_factory::new_action_link,
         routes::rfc003::decline::{to_swap_decline_reason, DeclineBody},
     },
-    init_swap::init_accepted_swap,
     libp2p_comit_ext::ToHeader,
     network::PendingRequestFor,
     seed::DeriveSwapSeed,
@@ -106,8 +105,12 @@ pub async fn handle_action(
                 )
                 .await?;
 
-                init_accepted_swap::<_, _, _, _, AH, BH, _, _, AT, BT>(&dependencies, accepted)
-                    .await?;
+                // init_accepted_swap::<AL, BL, AA, BA, AH, BH, AI, BI, AT, BT>(
+                //     &dependencies,
+                //     accepted,
+                //     PhantomData,
+                // )
+                // .await?;
 
                 Ok(ActionResponseBody::None)
             }

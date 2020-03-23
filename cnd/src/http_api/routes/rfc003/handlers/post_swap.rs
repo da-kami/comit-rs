@@ -3,7 +3,7 @@ use crate::{
     htlc_location,
     http_api::{HttpAsset, HttpLedger},
     identity,
-    init_swap::init_accepted_swap,
+    init_swap::{InitAcceptedSwap, Initiator},
     network::{DialInformation, SendRequest},
     seed::DeriveSwapSeed,
     swap_protocols::{
@@ -95,7 +95,9 @@ where
                     )
                     .await?;
 
-                    init_accepted_swap::<_, _, _, _, AH, BH, _, _, AT, BT>(&dependencies, accepted)
+                    let initiator = Initiator::<AL, BL, AA, BA, AI, BI>::default();
+                    initiator
+                        .init_accepted_swap(&dependencies, accepted)
                         .await?;
                 }
                 Err(decline) => {
