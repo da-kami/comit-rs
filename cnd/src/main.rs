@@ -30,7 +30,7 @@ use cnd::{
 };
 
 use rand::rngs::OsRng;
-use std::{process, sync::Arc};
+use std::{net::TcpListener, process, sync::Arc};
 use structopt::StructOpt;
 use tokio::runtime;
 mod cli;
@@ -142,6 +142,13 @@ fn main() -> anyhow::Result<()> {
     };
 
     runtime.block_on(load_swaps::load_swaps_from_database(deps.clone()))?;
+
+    let listen_addr = settings.http_api.socket;
+    // This is racey but gives us some protection, if the race condition is hit it
+    // just means cnd will start even though the HTTP server did not come up.
+    if !port_is_available(listen_addr.port()) {
+        return Err(anyhow::anyhow!("HTTP port is unavailable: {}", listen_addr));
+    }
     runtime.spawn(spawn_warp_instance(settings, deps));
 
     // Block the current thread.
@@ -158,6 +165,13 @@ fn version() {
     let short = &commit[..length];
 
     println!("{} {} ({})", name, version, short);
+}
+
+fn port_is_available(port: u16) -> bool {
+    match TcpListener::bind(("127.0.0.1", port)) {
+        Ok(_) => true,
+        Err(_) => false,
+    }
 }
 
 async fn spawn_warp_instance(settings: Settings, dependencies: Facade) {
