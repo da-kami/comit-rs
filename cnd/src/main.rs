@@ -149,10 +149,8 @@ fn main() -> anyhow::Result<()> {
     if !port_is_available(listen_addr.port()) {
         return Err(anyhow::anyhow!("HTTP port is unavailable: {}", listen_addr));
     }
-    runtime.spawn(spawn_warp_instance(settings, deps));
+    runtime.block_on(spawn_warp_instance(settings, deps));
 
-    // Block the current thread.
-    ::std::thread::park();
     Ok(())
 }
 
