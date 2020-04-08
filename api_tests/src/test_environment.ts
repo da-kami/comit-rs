@@ -286,6 +286,7 @@ export default class TestEnvironment extends NodeEnvironment {
     private async startAliceLightning() {
         const config = await this.initLightningLedger("lnd-alice");
         this.global.lndWallets.alice = await this.initLightningWallet(config);
+        this.global.ledgerConfigs.aliceLnd = config;
     }
 
     /**
@@ -297,6 +298,7 @@ export default class TestEnvironment extends NodeEnvironment {
     private async startBobLightning() {
         const config = await this.initLightningLedger("lnd-bob");
         this.global.lndWallets.bob = await this.initLightningWallet(config);
+        this.global.ledgerConfigs.bobLnd = config;
     }
 
     private async initLightningWallet(config: LightningNodeConfig) {
