@@ -162,12 +162,10 @@ fn version() {
 
 async fn spawn_warp_instance(settings: Settings, dependencies: Facade) {
     let routes = route_factory::create(dependencies, &settings.http_api.cors.allowed_origins);
-
     let listen_addr = settings.http_api.socket;
 
-    tracing::info!("Starting HTTP server on {}", listen_addr);
-
-    warp::serve(routes).bind(listen_addr).await
+    tracing::info!("Starting HTTP server on {} ...", listen_addr);
+    warp::serve(routes).try_bind(listen_addr).await
 }
 
 #[allow(clippy::print_stdout)] // We cannot use `log` before we have the config file
