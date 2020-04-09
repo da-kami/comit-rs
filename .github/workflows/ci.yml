@@ -104,7 +104,11 @@ jobs:
         uses: actions/download-artifact@v1
         with:
           name: cnd-${{ matrix.os }}
-          path: target/debug/cnd
+          path: target/debug/
+
+      - name: Rename file to cnd
+          run: |
+            mv cnd-${{ matrix.os }} cnd
 
       - name: Fix missing executable permission
         run: |
