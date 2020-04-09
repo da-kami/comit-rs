@@ -108,9 +108,10 @@ jobs:
 
       - name: Rename file to cnd
         run: |
-          pwd
+          cd targt/debug
           ls
-          mv ./target/debug/cnd-${{ matrix.os }} ./target/debug/cnd
+          mv cnd-${{ matrix.os }} cnd
+          cd ../..
 
       - name: Fix missing executable permission
         run: |
