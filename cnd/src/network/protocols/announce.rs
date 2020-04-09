@@ -3,7 +3,7 @@ pub mod handler;
 pub mod protocol;
 
 use digest::IntoDigestInput;
-use multihash::{self, Multihash};
+use libp2p::multihash::{self, Multihash};
 use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 
