@@ -37,7 +37,6 @@ enum PaymentStatus {
     Failed,
 }
 
-// TODO: don't deserialize fields we are not using
 #[derive(Debug, Deserialize)]
 struct Invoice {
     pub value: String,
@@ -47,7 +46,7 @@ struct Invoice {
     pub expiry: String,
     pub cltv_expiry: String,
     pub state: InvoiceState,
-    pub r_preimage: Option<String>, // TODO: this is base64 and not hex
+    pub r_preimage: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
