@@ -106,14 +106,6 @@ jobs:
           name: cnd-${{ matrix.os }}
           path: target/debug/
 
-      - name: Understand what is happening
-        run: |
-          pwd
-          cd target/debug
-          ls
-          pwd
-          cd ../..
-
       - name: Fix missing executable permission
         run: |
           chmod a+x target/debug/cnd
