@@ -108,7 +108,7 @@ jobs:
 
       - name: Rename file to cnd
         run: |
-          cd targt/debug
+          cd target/debug
           ls
           mv cnd-${{ matrix.os }} cnd
           cd ../..
