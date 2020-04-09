@@ -106,11 +106,12 @@ jobs:
           name: cnd-${{ matrix.os }}
           path: target/debug/
 
-      - name: Rename file to cnd
+      - name: Understand what is happening
         run: |
+          pwd
           cd target/debug
           ls
-          mv cnd-${{ matrix.os }} cnd
+          pwd
           cd ../..
 
       - name: Fix missing executable permission
