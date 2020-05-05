@@ -108,3 +108,16 @@ jobs:
           curl --fail localhost:9999/
           echo "::cnd API curled successfully"
           docker stop cnd_container
+
+  release:
+    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/') # only merged release branches must trigger this
+    name: Create GitHub release
+    needs: [build_binary, create_docker_image]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract version from branch name
+        id: extract-version
+        run: |
+          BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+          VERSION=${BRANCH_NAME#release/}
+          echo "::set-output name=version::$VERSION"
